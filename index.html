@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+
+
+<title>Customer Login</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1 style="position:fixed; top:0; left:0; width:100%; text-align:center; 
+           padding:15px; font-size:1.1rem; font-weight:bold; 
+           font-family: 'Syncopate', sans-serif;
+           z-index:1000; margin:0; ">
+  FortLark Pvt Ltd
+</h1>
+
+
+<!-- Login Page -->
+<div class="login-container" id="loginContainer">
+  <h2>Customer Login</h2>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button id="loginBtn">Login</button>
+  <p id="errorMsg" style="color:red;"></p>
+</div>
+
+<!-- Dashboard (Hidden Initially) -->
+<div class="dashboard-container hidden" id="dashboardContainer">
+  <h2>Welcome, <span id="userName"></span></h2>
+  <p>This is your dashboard.</p>
+
+
+   <!-- PROFIT CARD (replace the old <p> line) -->
+<div class="profit-card" role="status" aria-live="polite">
+  <div class="profit-left">
+    <div class="profit-avatar">₹</div>
+    <div class="profit-info">
+      <small>Accumulated profit</small>
+      <div class="profit-amount" id="userProfit">0</div>
+    </div>
+  </div>
+  <div>
+    <span class="profit-badge">Overview</span>
+    <p>Total Paid: ₹<span id="userTotalPaid">0</span></p>
+  </div>
+</div>
+
+
+
+  <!-- Example Chitt Table -->
+  <table id="chittTable">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Amount</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="logoutBtn">Logout</button>
+
+
+<!-- Winner Top-up Popup -->
+<div id="winnerTopupPopup" class="winner-popup hidden"></div>
+
+
+
+
+
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="login.js"></script>
+</body>
+</html>

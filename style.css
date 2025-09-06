@@ -93,69 +93,132 @@ body{
 
 
 /* ---- Dashboard header ---- */
-.dashboard-container h2{
-  margin:0;
-  font-weight:700;
-  font-size:1.25rem;
-  display:flex;
-  align-items:center;
-  gap:12px;
+.dashboard-container h2 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap; /* allow wrapping on smaller screens */
 }
-.dashboard-container p{margin:8px 0 18px; color:var(--muted)}
+.dashboard-container p {
+  margin: 8px 0 18px;
+  color: var(--muted);
+}
 
 /* ---- Profit card (highlight) ---- */
-.profit-card{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
+.profit-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   background: linear-gradient(180deg, rgba(10,132,255,0.06), rgba(10,132,255,0.02));
   border: 1px solid rgba(10,132,255,0.12);
-  padding:14px;
-  border-radius:14px;
+  padding: 14px;
+  border-radius: 14px;
   box-shadow: var(--shadow-sm);
-  margin-bottom:18px;
+  margin-bottom: 18px;
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.profit-card:hover{ transform: translateY(-4px); box-shadow: 0 18px 40px rgba(10,132,255,0.08) }
-
-.profit-left{
-  display:flex;
-  gap:12px;
-  align-items:center;
+.profit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(10,132,255,0.08);
 }
-.profit-avatar{
-  width:48px;
-  height:48px;
-  border-radius:12px;
-  background: linear-gradient(135deg,var(--accent),var(--accent-2));
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:white;
-  font-weight:700;
-  font-size:1.05rem;
+
+.profit-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+}
+.profit-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.05rem;
   box-shadow: 0 6px 18px rgba(15,110,246,0.15);
 }
-.profit-info small{ display:block; color:var(--muted); font-size:0.85rem; }
-.profit-amount{
-  font-size:1.4rem;
-  font-weight:800;
-  color:#BBD58E;
-  letter-spacing:0.4px;
+.profit-info small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.profit-amount {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #BBD58E;
+  letter-spacing: 0.4px;
 }
 
 /* small label indicating "profit" */
-.profit-badge{
-  display:inline-block;
+.profit-badge {
+  display: inline-block;
   background: rgba(5,39,68,0.06);
   color: #054060;
-  padding:4px 8px;
-  border-radius:999px;
-  font-size:0.8rem;
-  border:1px solid rgba(5,39,68,0.06);
-  margin-left:6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(5,39,68,0.06);
+  margin-left: 6px;
 }
+
+/* ---- Mobile responsiveness ---- */
+@media (max-width: 768px) {
+  .profit-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .profit-left {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .profit-amount {
+    font-size: 1.2rem;
+  }
+
+  .profit-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
+  }
+
+  .dashboard-container h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .profit-card {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .profit-amount {
+    font-size: 1rem;
+  }
+
+  .profit-info small {
+    font-size: 0.75rem;
+  }
+
+  .profit-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+}
+
 
 /* ---- Table styling (chittTable) ---- */
 #chittTable{
@@ -245,3 +308,4 @@ body{
 .hidden {
   display: none !important;
 }
+

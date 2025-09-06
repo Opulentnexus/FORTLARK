@@ -23,7 +23,7 @@ const profitSpan = document.getElementById("userProfit");
 const totalPaidSpan = document.getElementById("userTotalPaid");
 const tabSwitcher = document.getElementById("chitTabs");
 
-let currentChitType = "normal"; 
+let currentChitType = "normal";
 let currentListeningDocId = null;
 
 // ---------------- Login ----------------
@@ -80,8 +80,9 @@ function setupChitTabs(chitType) {
     `<button id="${id}" class="${isActive ? "active" : ""}" style="margin-right:8px;">${label}</button>`;
 
   if (chitType === "both") {
-    tabSwitcher.innerHTML = makeBtn("normalTab", "Normal Chit", currentChitType === "normal") +
-                              makeBtn("goldTab", "Gold Chit", currentChitType === "gold");
+    tabSwitcher.innerHTML =
+      makeBtn("normalTab", "Normal Chit", currentChitType === "normal") +
+      makeBtn("goldTab", "Gold Chit", currentChitType === "gold");
 
     const normalTab = document.getElementById("normalTab");
     const goldTab = document.getElementById("goldTab");
@@ -112,9 +113,10 @@ function updateActiveTab() {
   if (!tabSwitcher) return;
   tabSwitcher.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
 
-  const id = currentChitType === "normal" 
-    ? (document.getElementById("normalTab") ? "normalTab" : "onlyNormal")
-    : (document.getElementById("goldTab") ? "goldTab" : "onlyGold");
+  const id =
+    currentChitType === "normal"
+      ? (document.getElementById("normalTab") ? "normalTab" : "onlyNormal")
+      : (document.getElementById("goldTab") ? "goldTab" : "onlyGold");
 
   const activeBtn = document.getElementById(id);
   if (activeBtn) activeBtn.classList.add("active");
@@ -123,35 +125,38 @@ function updateActiveTab() {
 // ---------------- Real-time listener ----------------
 function listenUserData(userId) {
   if (!userId) return;
-  db.collection("users").doc(userId).onSnapshot((docSnap) => {
-    if (!docSnap.exists) return;
-    const userData = docSnap.data();
-    window.currentUserData = userData;
+  db.collection("users").doc(userId).onSnapshot(
+    (docSnap) => {
+      if (!docSnap.exists) return;
+      const userData = docSnap.data();
+      window.currentUserData = userData;
 
-    // Update header
-    userNameSpan && (userNameSpan.textContent = userData.name || "Customer");
+      // Update header
+      userNameSpan && (userNameSpan.textContent = userData.name || "Customer");
 
-    // ✅ Show profits correctly based on chitType
-    if (profitSpan) {
-      if (userData.chitType === "normal") {
-        profitSpan.innerHTML = `<strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)}`;
-      } else if (userData.chitType === "gold") {
-        profitSpan.innerHTML = `<strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}`;
-      } else if (userData.chitType === "both") {
-        profitSpan.innerHTML = `
-          <strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)} <br>
-          <strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}
-        `;
-      } else {
-        profitSpan.innerHTML = `<em>No profit data</em>`;
+      // ✅ Show profits correctly based on chitType
+      if (profitSpan) {
+        if (userData.chitType === "normal") {
+          profitSpan.innerHTML = `<strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)}`;
+        } else if (userData.chitType === "gold") {
+          profitSpan.innerHTML = `<strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}`;
+        } else if (userData.chitType === "both") {
+          profitSpan.innerHTML = `
+            <strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)} <br>
+            <strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}
+          `;
+        } else {
+          profitSpan.innerHTML = `<em>No profit data</em>`;
+        }
       }
-    }
 
-    // Render table
-    renderChittTable(userData);
-  }, (err) => {
-    console.error("listenUserData error:", err);
-  });
+      // Render table
+      renderChittTable(userData);
+    },
+    (err) => {
+      console.error("listenUserData error:", err);
+    }
+  );
 }
 
 // ---------------- Render chit table ----------------
@@ -164,14 +169,14 @@ function renderChittTable(userData) {
     return;
   }
 
-  const showType = (userData.chitType === "both") ? currentChitType : (userData.chitType || "normal");
+  const showType = userData.chitType === "both" ? currentChitType : userData.chitType || "normal";
   const paymentsMap = getPaymentsMapForType(userData, showType);
 
-  const totalPaid = computeTotalPaidFromMap(paymentsMap);
+  const totalPaid = computeTotalPaidFromMap(paymentsMap, showType, userData.normalScheme);
   totalPaidSpan && (totalPaidSpan.textContent = totalPaid);
 
   if (showType === "normal") {
-    renderNormalChit(paymentsMap);
+    renderNormalChit(paymentsMap, userData.normalScheme);
   } else if (showType === "gold") {
     renderGoldChit(paymentsMap);
   } else {
@@ -204,15 +209,26 @@ function getPaymentsMapForType(userData, type) {
   return {};
 }
 
-function computeTotalPaidFromMap(mapObj) {
+function computeTotalPaidFromMap(mapObj, type, normalScheme) {
   if (!mapObj) return 0;
+
+  // ✅ fallback scheme for normal chit
+  const schemeAmount =
+    type === "normal"
+      ? normalScheme === "2500"
+        ? 2500
+        : normalScheme === "3000"
+        ? 3000
+        : 2600
+      : 3000; // gold fixed
+
   return Object.values(mapObj)
-    .filter(p => p && p.status === true)
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .filter((p) => p && p.status === true)
+    .reduce((sum, p) => sum + (Number(p.amount) || schemeAmount), 0);
 }
 
 // ---------------- Renderers ----------------
-function renderNormalChit(payments) {
+function renderNormalChit(payments, scheme) {
   if (!chittTableBody) return;
   const months = Object.keys(payments || {});
   if (months.length === 0) {
@@ -220,14 +236,17 @@ function renderNormalChit(payments) {
     return;
   }
 
+  // ✅ Decide scheme amount (default fallback = 2600)
+  const schemeAmount = scheme === "2500" ? 2500 : scheme === "3000" ? 3000 : 2600;
+
   // ✅ Sort months in chronological order
   const sortedMonths = months.sort((a, b) => new Date(a) - new Date(b));
 
-  sortedMonths.forEach(month => {
+  sortedMonths.forEach((month) => {
     const p = payments[month] || {};
     const row = `<tr>
       <td>${month}</td>
-      <td>₹${p.amount || 2600}</td>
+      <td>₹${p.amount || schemeAmount}</td>
       <td>${p.status ? "Paid ✅" : "Unpaid ❌"}</td>
     </tr>`;
     chittTableBody.innerHTML += row;
@@ -245,7 +264,7 @@ function renderGoldChit(payments) {
   // ✅ Sort months in chronological order
   const sortedMonths = months.sort((a, b) => new Date(a) - new Date(b));
 
-  sortedMonths.forEach(month => {
+  sortedMonths.forEach((month) => {
     const p = payments[month] || {};
     const row = `<tr>
       <td>${month}</td>

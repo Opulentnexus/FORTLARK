@@ -1,4 +1,4 @@
-// Firebase Config
+// ---------------- Firebase Config ----------------
 const firebaseConfig = {
   apiKey: "AIzaSyD1j1NOcVwyPR3LAw025JBHM_1dN_G6qUc",
   authDomain: "fortlark.firebaseapp.com",
@@ -9,19 +9,24 @@ const firebaseConfig = {
   measurementId: "G-YH4LFRZNFL"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DOM elements
+// ---------------- DOM elements ----------------
 const loginContainer = document.getElementById("loginContainer");
 const dashboardContainer = document.getElementById("dashboardContainer");
 const userNameSpan = document.getElementById("userName");
 const errorMsg = document.getElementById("errorMsg");
 const chittTableBody = document.querySelector("#chittTable tbody");
+const profitSpan = document.getElementById("userProfit");
+const totalPaidSpan = document.getElementById("userTotalPaid");
+const tabSwitcher = document.getElementById("chitTabs");
 
-// Login button
+let currentChitType = "normal"; 
+let currentListeningDocId = null;
+
+// ---------------- Login ----------------
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -33,95 +38,225 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   }
 
   try {
-    // Sign in with Firebase Auth
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
-    // Fetch Firestore user data
-const snapshot = await db.collection("users").where("email", "==", email).get();
-if (snapshot.empty) {
-  errorMsg.textContent = "User data not found!";
-  return;
-}
+    // find Firestore user doc by email
+    const snapshot = await db.collection("users").where("email", "==", email).get();
+    if (snapshot.empty) {
+      errorMsg.textContent = "User data not found!";
+      return;
+    }
 
-const userDoc = snapshot.docs[0];     // 👈 get actual document
-const userData = userDoc.data();
+    const userDoc = snapshot.docs[0];
+    const userData = userDoc.data();
+    currentListeningDocId = userDoc.id;
 
-// Show dashboard
-userNameSpan.textContent = userData.name || "Customer";
-loginContainer.classList.add("hidden");
-dashboardContainer.classList.remove("hidden");
+    // Default chit type
+    if (userData.chitType === "both") currentChitType = "normal";
+    else currentChitType = userData.chitType || "normal";
 
+    // Show dashboard
+    userNameSpan && (userNameSpan.textContent = userData.name || "Customer");
+    loginContainer && loginContainer.classList.add("hidden");
+    dashboardContainer && dashboardContainer.classList.remove("hidden");
 
-// After you set the name and show dashboard:
-userNameSpan.textContent = userData.name || "Customer";
-loginContainer.classList.add("hidden");
-dashboardContainer.classList.remove("hidden");
-
-// NEW: show profit if available
-const profitSpan = document.getElementById("userProfit");
-if (profitSpan) {
-  profitSpan.textContent = Number(userData.profit || 0);
-}
-
-
-
- // NEW: Calculate total paid
-  const totalPaidSpan = document.getElementById("userTotalPaid");
-  if (totalPaidSpan && userData.payments) {
-    const totalPaid = Object.values(userData.payments)
-      .filter(p => p.status) // only count paid
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    totalPaidSpan.textContent = totalPaid;
-  } else if (totalPaidSpan) {
-    totalPaidSpan.textContent = 0;
-  }
-
-
-
-// Load Chitt / ledger data with the correct Firestore doc ID
-loadChitt(userDoc.id);
-
+    // Setup tabs + listener
+    setupChitTabs(userData.chitType);
+    listenUserData(userDoc.id);
 
   } catch (err) {
     console.error(err);
-    if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
-      errorMsg.textContent = "Invalid email or password";
-    } else {
-      errorMsg.textContent = "Error logging in: " + err.message;
-    }
+    errorMsg.textContent = "Login error: " + (err.message || err);
   }
 });
 
-// Popup function
-function showWinnerPopup(message) {
-  const popup = document.getElementById("winnerTopupPopup");
-  popup.textContent = message;
-  popup.classList.remove("hidden");
-  popup.classList.add("show");
+// ---------------- Setup chit tabs ----------------
+function setupChitTabs(chitType) {
+  if (!tabSwitcher) return;
+  tabSwitcher.innerHTML = "";
 
-  // auto-hide after 4 seconds
-  setTimeout(() => {
-    popup.classList.remove("show");
-    setTimeout(() => popup.classList.add("hidden"), 400);
-  }, 4000);
+  const makeBtn = (id, label, isActive) =>
+    `<button id="${id}" class="${isActive ? "active" : ""}" style="margin-right:8px;">${label}</button>`;
+
+  if (chitType === "both") {
+    tabSwitcher.innerHTML = makeBtn("normalTab", "Normal Chit", currentChitType === "normal") +
+                              makeBtn("goldTab", "Gold Chit", currentChitType === "gold");
+
+    const normalTab = document.getElementById("normalTab");
+    const goldTab = document.getElementById("goldTab");
+
+    normalTab && normalTab.addEventListener("click", () => {
+      currentChitType = "normal";
+      updateActiveTab();
+      renderChittTable(window.currentUserData || {});
+    });
+
+    goldTab && goldTab.addEventListener("click", () => {
+      currentChitType = "gold";
+      updateActiveTab();
+      renderChittTable(window.currentUserData || {});
+    });
+  } else if (chitType === "normal") {
+    tabSwitcher.innerHTML = makeBtn("onlyNormal", "Normal Chit", true);
+    currentChitType = "normal";
+  } else if (chitType === "gold") {
+    tabSwitcher.innerHTML = makeBtn("onlyGold", "Gold Chit", true);
+    currentChitType = "gold";
+  }
+
+  updateActiveTab();
 }
 
-// Listen for Winner Top-up updates
-db.collection("settings").doc("winnerTopup").onSnapshot((docSnap) => {
-  if (docSnap.exists) {
-    const data = docSnap.data();
-    if (data.amount && data.date) {
-      showWinnerPopup(`Winner top-up: ₹${data.amount} on ${data.date}`);
+function updateActiveTab() {
+  if (!tabSwitcher) return;
+  tabSwitcher.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+
+  const id = currentChitType === "normal" 
+    ? (document.getElementById("normalTab") ? "normalTab" : "onlyNormal")
+    : (document.getElementById("goldTab") ? "goldTab" : "onlyGold");
+
+  const activeBtn = document.getElementById(id);
+  if (activeBtn) activeBtn.classList.add("active");
+}
+
+// ---------------- Real-time listener ----------------
+function listenUserData(userId) {
+  if (!userId) return;
+  db.collection("users").doc(userId).onSnapshot((docSnap) => {
+    if (!docSnap.exists) return;
+    const userData = docSnap.data();
+    window.currentUserData = userData;
+
+    // Update header
+    userNameSpan && (userNameSpan.textContent = userData.name || "Customer");
+
+    // ✅ Show profits correctly based on chitType
+    if (profitSpan) {
+      if (userData.chitType === "normal") {
+        profitSpan.innerHTML = `<strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)}`;
+      } else if (userData.chitType === "gold") {
+        profitSpan.innerHTML = `<strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}`;
+      } else if (userData.chitType === "both") {
+        profitSpan.innerHTML = `
+          <strong>Normal Chit:</strong> ₹${Number(userData.profits?.normal || 0)} <br>
+          <strong>Gold Chit:</strong> ₹${Number(userData.profits?.gold || 0)}
+        `;
+      } else {
+        profitSpan.innerHTML = `<em>No profit data</em>`;
+      }
     }
+
+    // Render table
+    renderChittTable(userData);
+  }, (err) => {
+    console.error("listenUserData error:", err);
+  });
+}
+
+// ---------------- Render chit table ----------------
+function renderChittTable(userData) {
+  chittTableBody && (chittTableBody.innerHTML = "");
+
+  if (!userData) {
+    chittTableBody.innerHTML = "<tr><td colspan='3'>No user data</td></tr>";
+    totalPaidSpan && (totalPaidSpan.textContent = 0);
+    return;
   }
-});
 
+  const showType = (userData.chitType === "both") ? currentChitType : (userData.chitType || "normal");
+  const paymentsMap = getPaymentsMapForType(userData, showType);
 
+  const totalPaid = computeTotalPaidFromMap(paymentsMap);
+  totalPaidSpan && (totalPaidSpan.textContent = totalPaid);
 
+  if (showType === "normal") {
+    renderNormalChit(paymentsMap);
+  } else if (showType === "gold") {
+    renderGoldChit(paymentsMap);
+  } else {
+    chittTableBody.innerHTML = "<tr><td colspan='3'>No data to display</td></tr>";
+  }
+}
 
+// ---------------- Helpers ----------------
+function getPaymentsMapForType(userData, type) {
+  if (type === "normal") {
+    if (userData.payments && userData.payments.normal) {
+      return userData.payments.normal;
+    }
+    if (userData.payments && !userData.payments.gold) {
+      return userData.payments; // legacy = normal only
+    }
+    return {};
+  }
 
-// Logout button
+  if (type === "gold") {
+    if (userData.payments && userData.payments.gold) {
+      return userData.payments.gold;
+    }
+    if (userData.goldChit) {
+      return userData.goldChit;
+    }
+    return {};
+  }
+
+  return {};
+}
+
+function computeTotalPaidFromMap(mapObj) {
+  if (!mapObj) return 0;
+  return Object.values(mapObj)
+    .filter(p => p && p.status === true)
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+}
+
+// ---------------- Renderers ----------------
+function renderNormalChit(payments) {
+  if (!chittTableBody) return;
+  const months = Object.keys(payments || {});
+  if (months.length === 0) {
+    chittTableBody.innerHTML = "<tr><td colspan='3'>No Normal Chit data</td></tr>";
+    return;
+  }
+
+  // ✅ Sort months in chronological order
+  const sortedMonths = months.sort((a, b) => new Date(a) - new Date(b));
+
+  sortedMonths.forEach(month => {
+    const p = payments[month] || {};
+    const row = `<tr>
+      <td>${month}</td>
+      <td>₹${p.amount || 2600}</td>
+      <td>${p.status ? "Paid ✅" : "Unpaid ❌"}</td>
+    </tr>`;
+    chittTableBody.innerHTML += row;
+  });
+}
+
+function renderGoldChit(payments) {
+  if (!chittTableBody) return;
+  const months = Object.keys(payments || {});
+  if (months.length === 0) {
+    chittTableBody.innerHTML = "<tr><td colspan='3'>No Gold Chit data</td></tr>";
+    return;
+  }
+
+  // ✅ Sort months in chronological order
+  const sortedMonths = months.sort((a, b) => new Date(a) - new Date(b));
+
+  sortedMonths.forEach(month => {
+    const p = payments[month] || {};
+    const row = `<tr>
+      <td>${month}</td>
+      <td>₹${p.amount || 3000}</td>
+      <td>${p.status ? "Paid ✅" : "Unpaid ❌"}</td>
+    </tr>`;
+    chittTableBody.innerHTML += row;
+  });
+}
+
+// ---------------- Logout ----------------
 document.getElementById("logoutBtn").addEventListener("click", () => {
   auth.signOut();
   loginContainer.classList.remove("hidden");
@@ -129,59 +264,8 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   document.getElementById("email").value = "";
   document.getElementById("password").value = "";
   chittTableBody.innerHTML = "";
+  tabSwitcher.innerHTML = "";
+  totalPaidSpan.textContent = 0;
+  profitSpan.innerHTML = "";
 });
 
-// Load Chitt / ledger data
-async function loadChitt(userId) {
-  // Fetch the user document directly from "users" collection
-  const userDoc = await db.collection("users").doc(userId).get();
-  chittTableBody.innerHTML = "";
-
-  if (!userDoc.exists) {
-    chittTableBody.innerHTML = "<tr><td colspan='3'>No data found</td></tr>";
-    return;
-  }
-
-  const userData = userDoc.data();
-
-
-  // NEW: update profit display from latest doc data
-  const profitSpan = document.getElementById("userProfit");
-  if (profitSpan) {
-    profitSpan.textContent = Number(userData.profit || 0);
-  }
-
-
-if (userData.payments) {
-  // Turn object into array
-  const sortedPayments = Object.entries(userData.payments).sort(([monthA], [monthB]) => {
-    try {
-      // Try to parse as date
-      const dateA = new Date(monthA);
-      const dateB = new Date(monthB);
-
-      // If valid dates, compare normally
-      if (!isNaN(dateA) && !isNaN(dateB)) {
-        return dateA - dateB;
-      }
-
-      // If not valid dates, fallback to string sort
-      return monthA.localeCompare(monthB);
-    } catch (err) {
-      // If something goes wrong, keep original order
-      return 0;
-    }
-  });
-
-  sortedPayments.forEach(([month, payment]) => {
-    const row = `<tr>
-      <td>${month}</td>
-      <td>₹${payment.amount || 0}</td>
-      <td>${payment.status ? "Paid" : "Unpaid"}</td>
-    </tr>`;
-    chittTableBody.innerHTML += row;
-  });
-} else {
-  chittTableBody.innerHTML = "<tr><td colspan='3'>No payments yet</td></tr>";
-}
-}
